@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Local virtualenv
+myenv/
