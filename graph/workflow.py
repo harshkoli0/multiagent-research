@@ -3,6 +3,7 @@ from typing import TypedDict
 from langgraph.graph import StateGraph,END
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+import os
 
 from agent.planner import planner_agent
 from agent.researcher import researcher_agent
@@ -11,83 +12,87 @@ from agent.Reviewer import reviewer_agent
 
 load_dotenv()
 
-llm=ChatGroq(model="llama-3.1-8b-instant",temperature=0)
+DEFAULT_MODEL=os.getenv("GROQ_MODEL","openai/gpt-oss-20b")
 
 class AgentState(TypedDict):
     query:str
     plan:str
+    search_queries:list[str]
+    sources:list[dict]
     research:str
     draft:str
     final:str
     
-def planner_node(state):
-    plan=planner_agent(llm,state["query"])
-    return {**state,"plan":plan}
-    
-def researcher_node(state):
-    research=researcher_agent(llm,state["plan"])
-    return {**state,"research":research}
-    
-def writer_node(state):
-    draft=writer_agent(llm,state["research"])
-        
-    return {**state,"draft":draft}
-def reviewer_node(state):
-    final=reviewer_agent(llm,state["draft"])
-    return {**state,"final":final}
-    
-workflow=StateGraph(AgentState)
+def build_app(model=DEFAULT_MODEL):
+    """Build and compile the planner -> research -> writer -> reviewer graph for the given Groq model."""
+    llm=ChatGroq(model=model,temperature=0)
 
-workflow.add_node(
-    "planner",
-    planner_node
-)
- 
-workflow.add_node(
-    "research",
-    researcher_node
-)
+    def planner_node(state):
+        plan,queries=planner_agent(llm,state["query"])
+        return {**state,"plan":plan,"search_queries":queries}
 
-workflow.add_node(
-    "writer",
-    writer_node
-)
+    def researcher_node(state):
+        research,sources=researcher_agent(llm,state["plan"],state["search_queries"])
+        return {**state,"research":research,"sources":sources}
 
-workflow.add_node(
-    "reviewer",
-    reviewer_node
-)
+    def writer_node(state):
+        draft=writer_agent(llm,state["research"])
+
+        return {**state,"draft":draft}
+    def reviewer_node(state):
+        final=reviewer_agent(llm,state["draft"])
+        return {**state,"final":final}
+
+    workflow=StateGraph(AgentState)
+
+    workflow.add_node(
+        "planner",
+        planner_node
+    )
+
+    workflow.add_node(
+        "research",
+        researcher_node
+    )
+
+    workflow.add_node(
+        "writer",
+        writer_node
+    )
+
+    workflow.add_node(
+        "reviewer",
+        reviewer_node
+    )
 
 
-# Entry Point
-workflow.set_entry_point("planner")
+    # Entry Point
+    workflow.set_entry_point("planner")
 
 
-# Add Edges
-workflow.add_edge(
-    "planner",
-    "research"
-)
+    # Add Edges
+    workflow.add_edge(
+        "planner",
+        "research"
+    )
 
-workflow.add_edge(
-    "research",
-    "writer"
-)
+    workflow.add_edge(
+        "research",
+        "writer"
+    )
 
-workflow.add_edge(
-    "writer",
-    "reviewer"
-)
+    workflow.add_edge(
+        "writer",
+        "reviewer"
+    )
 
-workflow.add_edge(
-    "reviewer",
-    END
-)
+    workflow.add_edge(
+        "reviewer",
+        END
+    )
+
+    return workflow.compile()
 
 
 # Compile App
-app = workflow.compile()
-    
-    
-    
-    
+app = build_app()

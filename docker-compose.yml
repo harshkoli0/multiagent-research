@@ -1,0 +1,31 @@
+services:
+  # Streamlit UI  ->  docker compose up --build   then open http://localhost:8501
+  studio:
+    build: .
+    image: research-studio:latest
+    container_name: research-studio
+    env_file: .env
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    read_only: true              # container filesystem is immutable...
+    tmpfs:
+      - /tmp                     # ...except scratch space
+      - /home/agent              # streamlit writes its config/cache here
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+  # One-shot CLI  ->  docker compose run --rm cli "your question"
+  cli:
+    image: research-studio:latest
+    env_file: .env
+    entrypoint: ["docker/entrypoint.sh", "cli"]
+    profiles: [cli]              # not started by `docker compose up`
+
+  # Pre-flight check  ->  docker compose run --rm check
+  check:
+    image: research-studio:latest
+    env_file: .env
+    command: ["check"]
+    profiles: [cli]
