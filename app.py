@@ -1,6 +1,6 @@
 import sys
 
-from graph.workflow import app
+from graph.workflow import build_app
 from rich import print
 
 
@@ -8,6 +8,7 @@ from rich import print
 query = " ".join(sys.argv[1:]) or input("Enter your query: ")
 
 
+app = build_app()
 response = app.invoke({
     "query": query
 })

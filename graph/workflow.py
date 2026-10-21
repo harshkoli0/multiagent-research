@@ -92,7 +92,3 @@ def build_app(model=DEFAULT_MODEL):
     )
 
     return workflow.compile()
-
-
-# Compile App
-app = build_app()

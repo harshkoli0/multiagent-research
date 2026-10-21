@@ -11,6 +11,14 @@ from graph.workflow import DEFAULT_MODEL, build_app
 
 load_dotenv()
 
+# On Streamlit Cloud the keys live in st.secrets; mirror them into the environment the agents read from
+try:
+    for _key in ("GROQ_API_KEY", "TAVILY_API_KEY"):
+        if _key in st.secrets and not os.getenv(_key):
+            os.environ[_key] = str(st.secrets[_key])
+except Exception:
+    pass  # no secrets.toml locally
+
 st.set_page_config(page_title="Multi-Agent Research Studio", page_icon="🧠", layout="wide")
 
 AGENTS = [
