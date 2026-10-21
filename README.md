@@ -30,10 +30,7 @@ myenv\Scripts\activate
 # macOS / Linux
 source myenv/bin/activate
 
-# with uv (reads dependencies straight from pyproject.toml)
-uv pip install -r pyproject.toml
-# or with plain pip
-pip install "langchain-core>=1.3" "langchain-groq>=1.1" "langgraph>=1.1" "pydantic>=2.13"   "python-dotenv>=1.2" "rich>=15.0" "streamlit>=1.66" "tavily-python>=0.7"
+pip install -r requirements.txt
 ```
 
 Create a `.env` file in the project root:
@@ -46,6 +43,18 @@ GROQ_MODEL=openai/gpt-oss-20b
 ```
 
 `.env` and `.streamlit/secrets.toml` are git-ignored, so keys are never committed.
+
+Keep `requirements.txt` in sync with the dependencies in `pyproject.toml`. Streamlit Community Cloud installs from `requirements.txt`, and the Docker image installs from `pyproject.toml`.
+
+## Deploying to Streamlit Community Cloud
+
+1. Create an app from this repo with `streamlit_app.py` as the main file. Under **Advanced settings**, choose Python 3.12.
+2. Under **Advanced settings → Secrets**, add your keys as top-level entries. Cloud exposes these as environment variables, which is where the app reads them from:
+
+   ```toml
+   GROQ_API_KEY = "your-groq-key"
+   TAVILY_API_KEY = "your-tavily-key"
+   ```
 
 ## Usage
 
@@ -99,4 +108,10 @@ docker/           container entrypoint (ui | cli | check modes)
 **`ImportError: cannot import name 'StateGraph' from 'langgraph.graph' (unknown location)`**, or `ModuleNotFoundError` for a package you know you installed.
 A pip install was interrupted and left a package half-written. Look in `myenv/Lib/site-packages` for folders whose names start with `~`, or for a package folder with no matching `.dist-info`. Delete those folders and reinstall the dependencies as described in [Setup](#setup).
 
-This happens more often when the project is inside a OneDrive or other synced folder, because the sync client can lock files while pip writes them. If it keeps happening, pause syncing during installs or create the virtualenv outside the synced folder.
+On Windows, the most common cause is the 260-character path limit: Streamlit ships deeply nested files, and a virtualenv in a long folder (for example under OneDrive) goes over the limit partway through the install. To fix it, enable long paths (run in an admin PowerShell, then reboot) or move the virtualenv to a shorter path:
+
+```powershell
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force
+```
+
+OneDrive syncing files while pip writes them can also interrupt an install. Pausing sync during installs helps.
